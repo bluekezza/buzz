@@ -9,7 +9,10 @@
             [reloaded.repl :refer [system init start stop go reset]]
             [ring.middleware.stacktrace :refer [wrap-stacktrace]]
             [buzz.config :as config]
-            [buzz.system :as system]))
+            [buzz.system :as system]
+            [clojure.test.check.generators :as gen]
+            [buzz.generators :as g]
+            [buzz.core :as c]))
 
 (def dev-config
   {:app {:middleware [wrap-stacktrace]}})
