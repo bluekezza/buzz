@@ -2,39 +2,62 @@
   (:require
    [buzz.core :as c]
    [buzz.tree :as t]
+   [clojure.algo.generic.functor :refer [fmap]]
    [schema.core :as s]))
 
 (def Hiccup
   "placeholder for a hiccup schema"
   s/Any)
 
+(def ViewPlan
+  {:name      s/Keyword
+   :children [s/Keyword]
+   :query     s/Any
+   :data      s/Any
+   :model     s/Any
+   :html      s/Str})
+
+(def ViewPlans {s/Keyword ViewPlan})
+
 (s/defn pipeline :- Hiccup
   [page-tree :- t/Tree
    views     :- {s/Keyword c/View?}]
-  (let [view-order (t/reverse-level-order page-tree)
-        view-queries (map
-                      (fn [view-key]
-                        (let [view (get views view-key)]
-                          [view-key (c/requires view nil nil)]))
-                      view-order)
-        view-datas (map
-                    (fn [[view-key query]]
+  (let [view-plans (into
+                    (array-map)
+                    (t/reverse-level-order-walk
+                     (fn [n]
+                       (let [v (t/value-of n)
+                             children (mapv t/value-of (t/children-of n))]
+                         [v {:name     v
+                             :view     (get views v)
+                             :children children
+                             :query    nil
+                             :data     nil
+                             :model    nil
+                             :html     nil}]))
+                     page-tree))
+        view-plans (fmap
+                    (fn [{:keys [view] :as plan}]
+                      (assoc plan :queries (c/requires view nil nil)))
+                    view-plans)
+        view-plans (fmap
+                    (fn [{:keys [query] :as plan}]
                       (let [data (c/fetch query)]
-                        [view-key data]))
-                    view-queries)
-        view-models (map
-                     (fn [[view-key data]]
-                       (let [view (get views view-key)]
-                         [view-key (c/expands view data)]))
-                     view-datas)
-        views-rendered (reduce
-                          (fn [children [view-key model]]
-                            (let [view (get views view-key)
-                                  html (c/renders view model children)]
-                              (assoc children view-key html)))
-                          {}
-                          view-models)]
-    (:page views-rendered)))
+                        (assoc plan :data data)))
+                    view-plans)
+        view-plans (fmap
+                    (fn [{:keys [view data] :as plan}]
+                      (assoc plan :model (c/expands view data)))
+                    view-plans)
+        view-plans (reduce
+                    (fn [vps [key {:keys [name view model children] :as plan}]]
+                      (let [child-views (select-keys vps children)
+                            child-htmls (fmap :html child-views)
+                            html (c/renders view model child-htmls)]
+                        (assoc-in vps [name :html] html)))
+                    view-plans
+                    view-plans)]
+    (get-in view-plans [:page :html])))
 
 (s/defn ->html :- s/Str
   [h :- Hiccup]

@@ -34,11 +34,8 @@
   (expands [this data] nil)
   (renders [this model children]
    [[:head {}]
-    [:body {}
-     (:header children)
-     (:content children)
-     (:footer children)
-     ]]))
+    (concat [:body {}] (vals children))
+    ]))
 
 (s/def views :- {s/Keyword c/View?}
   {:header  (->Header)

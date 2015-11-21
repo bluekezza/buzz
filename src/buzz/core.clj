@@ -19,7 +19,7 @@
   "a self-contained view"
   (requires [self cfg req] "given the initial seed works out what data it needs")
   (expands  [self data] "consumes the needed data and expands into its final form")
-  (renders  [self model children] "renders structured hiccup html"))
+  (renders  [self model children] "View -> Any -> {s/Keyword Html} -> hiccup"))
 
 (def View? (schema-for-protocol View))
 
