@@ -14,6 +14,8 @@
             [schema.core :as s]
             [buzz.tree :as tree]))
 
+(s/set-fn-validation! true)
+
 (s/def trees :- [tree/Tree]
  [[1 [[2 []]]]
   [1 [[2 [[3 []]]]]]

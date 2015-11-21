@@ -4,7 +4,7 @@
 
 (def Tree
   "the schema for a Tree"
-  [(s/one s/Int "value")
+  [(s/one s/Any "value")
    (s/one [(s/recursive #'Tree)] "children")])
 
 (s/defn children :- [Tree]
@@ -12,12 +12,12 @@
   [t :- Tree]
   (second t))
 
-(s/defn value-of :- s/Int
+(s/defn value-of :- s/Any
   "returns the value-of the tree node"
   [t :- Tree]
   (first t))
 
-(s/defn reverse-level-order :- [s/Int]
+(s/defn reverse-level-order :- [s/Any]
   "traverses the tree in reverse level order"
   [root :- Tree]
   (let [pop (fn [q] [(first q) (vec (rest q))])]

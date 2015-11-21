@@ -12,6 +12,8 @@
             [clojure.algo.generic.functor :refer [fmap]]
             [buzz.generators :as g]))
 
+(s/set-fn-validation! true)
+
 (defspec spec-resolve
   (chuck/times 10)
   (prop/for-all [url' g/url]
