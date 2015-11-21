@@ -15,5 +15,4 @@
 (defspec spec-resolve
   (chuck/times 10)
   (prop/for-all [url' g/url]
-    (prn url')
     true))

@@ -8,8 +8,8 @@
             [clojure.test.check.clojure-test :refer (defspec)]
             [schema.core :as s]
             [com.gfredericks.test.chuck :as chuck]
-            [clojure.algo.generic.functor :refer [fmap]]
-            [buzz.core :as c]))
+            [buzz.core :as c]
+            [cemerick.url :as u]))
 
 (def path
   (gen/such-that not-empty gen/string-alphanumeric))
@@ -24,107 +24,34 @@
   :query    (s/maybe {c/Str c/Str})
   :anchor   s/Str})
 
-(def url
-  (gen/fmap
-   (fn [{:keys [protocol username password host port paths query anchor]}]
-     (let [user-pass (when (or username password) (str username ":" password "@"))]
-       (str protocol "://" user-pass host "/" (apply str (interpose "/" paths)))))
-   (gen/hash-map
-    :protocol (gen/return "http")
-    :username (gen/return nil)
-    :password (gen/return nil)
-    :host     (gen/return "www.buzz.co.uk")
-    :port     (gen/return -1)
-    :paths    (gen/vector path)
-    :query    (gen/return nil)
-    :anchor   (gen/return nil))))
+(def url-map
+  (gen/hash-map
+   :protocol (gen/elements ["http" "https"])
+   :username (gen/return nil)
+   :password (gen/return nil)
+   :host     (gen/return "www.buzz.co.uk")
+   :port     (gen/return -1)
+   :paths    (gen/vector path)
+   :query    (gen/return nil)
+   :anchor    gen/string-alphanumeric))
 
-(s/def ^:always-validate
-  structure :- c/HICCUP
-  "a description of the page tree"
-  ["/" {:type :root}
-   [["UK" {:type :region}
-     [["education" {} []]
-      ["media" {} []]
-      ["society" {} []]
-      ["law" {} []]
-      ["scotland" {} []]
-      ["wales" {} []]
-      ["northern ireland" {} []]
-      ]]
-    ["world" {:type :region}
-     [["europe" {} []]
-      ["US" {} []]
-      ["americas" {} []]
-      ["asia" {} []]
-      ["australia" {} []]
-      ["africa" {} []]
-      ["middle east" {} []]
-      ["cities" {} []]
-      ["development" {} []]
-      ]]
-    ["politics" {} []]
-    ["sport" {}
-     [["football" {} []]
-      ["cricket" {} []]
-      ["rugby union" {} []]
-      ["F1" {} []]
-      ["tennis" {} []]
-      ["golf" {} []]
-      ["cycling" {} []]
-      ["boxing" {} []]
-      ["racing" {} []]
-      ["rugby league" {} []]
-      ["US sports" {} []]
-      ]]
-    ["football" {}
-     [["live scores" {} []]
-      ["tables" {} []]
-      ["competitions" {} []]
-      ["results" {} []]
-      ["fixtures" {} []]
-      ["clubs" {} []]
-      ]]
-    ["opinion" {}
-     [["columnists" {} []]
-      ]]
-    ["culture" {}
-     [["film" {} []]
-      ["tv & radio" {} []]
-      ["music" {} []]
-      ["games" {} []]
-      ["books" {} []]
-      ["art & design" {} []]
-      ["stage" {} []]
-      ["classical" {} []]
-      ]]
-    ["business" {}
-     [["economics" {} []]
-      ["banking" {} []]
-      ["retail" {} []]
-      ["markets" {} []]
-      ["eurozone" {} []]
-      ]]
-    ["lifestyle" {}
-     [["food" {} []]
-      ["health & fitness" {} []]
-      ["love & sex" {} []]
-      ["family" {} []]
-      ["women" {} []]
-      ["home & garden" {} []]
-      ]]
-    ["fashion" {} []]
-    ["environment" {}
-     [["climate change" {} []]
-      ["wildlife" {} []]
-      ["energy" {} []]
-      ["pollution" {} []]
-      ]]
-    ["tech" {} []]
-    ["travel" {}
-     [["UK" {} []]
-      ["europe" {} []]
-      ["US" {} []]
-      ["skiing" {} []]
-      ]]
-    ]])
+(defn url-map-to-str
+  [{:keys [protocol username password host port paths query anchor]}]
+  (let [user-pass (when (or username password) (str username ":" password "@"))
+        query-str (when query (str "?" query))
+        anchor-str (when anchor (str "#" anchor))]
+    (apply str (concat
+                [protocol
+                 "://"
+                 user-pass
+                 host
+                 "/"]
+                (interpose "/" paths)
+                [anchor-str query-str]))))
+
+(def url (gen/fmap url-map-to-str url-map))
+
+(defspec all-generated-urls-are-valid
+  50
+  (prop/for-all [url' url]
+    (u/url url')))
