@@ -1,12 +1,11 @@
 (ns buzz.view
-  (:require
-   [buzz.core :as c]
-   [buzz.html :as h]
-   [buzz.tree :as t]
-   [clojure.algo.generic.functor :refer [fmap]]
-   [hickory.convert]
-   [hickory.render]
-   [schema.core :as s]))
+  (:require [buzz.core :as c]
+            [buzz.html :as h]
+            [buzz.tree :as t]
+            [clojure.algo.generic.functor :refer [fmap]]
+            [hickory.convert]
+            [hickory.render]
+            [schema.core :as s]))
 
 (def ViewPlan
   {:name      s/Keyword
