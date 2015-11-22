@@ -9,6 +9,7 @@
                  [duct/hikaricp-component "0.1.0"]
                  [environ "1.0.1"]
                  [hiccup "1.0.5"]
+                 [hickory "0.5.4"]
                  [meta-merge "0.1.1"]
                  [org.clojure/algo.generic "0.1.2"]
                  [org.clojure/clojure "1.7.0"]

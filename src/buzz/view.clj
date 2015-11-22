@@ -1,13 +1,12 @@
 (ns buzz.view
   (:require
    [buzz.core :as c]
+   [buzz.html :as h]
    [buzz.tree :as t]
    [clojure.algo.generic.functor :refer [fmap]]
+   [hickory.convert]
+   [hickory.render]
    [schema.core :as s]))
-
-(def Hiccup
-  "placeholder for a hiccup schema"
-  s/Any)
 
 (def ViewPlan
   {:name      s/Keyword
@@ -19,7 +18,7 @@
 
 (def ViewPlans {s/Keyword ViewPlan})
 
-(s/defn pipeline :- Hiccup
+(s/defn pipeline :- h/Hickory
   [page-tree :- t/Tree
    views     :- {s/Keyword c/View?}]
   (let [view-plans (into
@@ -60,5 +59,5 @@
     (get-in view-plans [:page :html])))
 
 (s/defn ->html :- s/Str
-  [h :- Hiccup]
-  (c/apply-macro hiccup.page/html5 h))
+  [h :- h/Hickory]
+  (hickory.render/hickory-to-html h))
