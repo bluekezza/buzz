@@ -34,7 +34,7 @@
   (expands [this data] nil)
   (renders [this model children]
    [[:head {}]
-    (concat [:body {}] (vals children))
+    (vec (concat [:body {}] (vals children)))
     ]))
 
 (s/def views :- {s/Keyword c/View?}
@@ -64,4 +64,4 @@
   "<!DOCTYPE html>\n<html><head></head><body><div>header</div><div>content</div><div>footer</div></body></html>")
 
 (deftest html-test
-  (is (= render-html (v/->html render-tree))))
+  (is (= render-html (v/->html (v/pipeline page views)))))
