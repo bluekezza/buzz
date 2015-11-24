@@ -69,7 +69,7 @@
    :content
    [{:tag :html
      :type :element
-     :attrs nil
+     :attrs {}
      :content
      [{:tag :head
        :type :element
@@ -82,7 +82,7 @@
        [{:tag :div
          :type :element
          :attrs {:class "adbanner"}
-         :content nil}
+         :content []}
         {:tag :div
          :type :element
          :attrs {:class "page"}

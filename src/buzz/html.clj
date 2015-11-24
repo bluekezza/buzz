@@ -1,4 +1,5 @@
 (ns buzz.html
+  (:import [clojure.lang ExceptionInfo])
   (:require [buzz.core :as c]
             [hickory.convert]
             [schema.core :as s]))
@@ -14,36 +15,39 @@
   {:type :document
    :content (vec elems)})
 
-(defn html
-  ([attrs & elems]
-   {:tag :html
-    :type :element
-    :attrs nil
-    :content (vec elems)}))
+(s/defn element
+  [tag-name :- s/Keyword]
+  (letfn [(element [attrs elems]
+            {:tag tag-name
+             :type :element
+             :attrs attrs
+             :content (cond
+                       (nil? elems)
+                       []
+                       (and (sequential? elems)
+                            (sequential? (first elems)))
+                       (first elems)
+                       :else
+                       (vec elems))})]
+    (fn
+      ([]
+       (element {} []))
+      ([attrs & elems]
+       (when-not (map? attrs) (throw (ExceptionInfo. "first argument must be a map" attrs)))
+       (element attrs elems)))))
 
-(defn head
-  ([attrs & elems]
-   {:tag :head
-    :type :element
-    :attrs attrs
-    :content (vec elems)}))
-
-(defn body
-  ([attrs & elems]
-   {:tag :body
-    :type :element
-    :attrs attrs
-    :content (vec elems)}))
-
-(defn div
-  [attrs & elems]
-  {:tag     :div
-   :type    :element
-   :attrs   attrs
-   :content (if (and (sequential? elems)
-                     (sequential? (first elems)))
-              (first elems)
-              elems)})
+(def html (element :html))
+(def head (element :head))
+(def body (element :body))
+(def div (element :div))
+(def span (element :span))
+(def a (element :a))
+(def img (element :img))
+(def ul (element :ul))
+(def li (element :li))
+(def script (element :script))
+(def strong (element :strong))
+(def b (element :b))
 
 (s/defn as-hickory :- Hickory
   [hiccup :- Hiccup]
