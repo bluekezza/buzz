@@ -1,11 +1,14 @@
 (ns buzz.view
+  (:import [clojure.lang ExceptionInfo])
   (:require [buzz.core :as c]
             [buzz.html :as h]
             [buzz.tree :as t]
             [clojure.algo.generic.functor :refer [fmap]]
             [hickory.convert]
             [hickory.render]
-            [schema.core :as s]))
+            [net.cgrand.enlive-html :as enlive]
+            [schema.core :as s]
+            [clojure.pprint]))
 
 (def ViewPlan
   {:name      s/Keyword
@@ -17,7 +20,15 @@
 
 (def ViewPlans {s/Keyword ViewPlan})
 
-(s/defn pipeline :- h/Hickory
+(def steps
+  [:walk
+   :queries
+   :fetches
+   :expands
+   :renders
+   :extracts])
+
+(s/defn pipeline :- h/Html
   [page-tree :- t/Tree
    views     :- {s/Keyword c/View?}]
   (let [view-plans (into
@@ -54,9 +65,15 @@
                             html (c/renders view model child-htmls)]
                         (assoc-in vps [name :html] html)))
                     view-plans
-                    view-plans)]
-    (get-in view-plans [:page :html])))
+                    view-plans)
+        root (first page-tree)]
+    (get-in view-plans [root :html])))
 
 (s/defn ->html :- s/Str
-  [h :- h/Hickory]
-  (hickory.render/hickory-to-html h))
+  [h :- h/Html]
+  (let [content (cond (= (:type h) :document)
+                      (:content h)
+                      (= (:tag h) :html)
+                      [h]
+                      :else (throw (ExceptionInfo. "cannot serialize" h)))]
+    (reduce str (enlive/emit* content))))

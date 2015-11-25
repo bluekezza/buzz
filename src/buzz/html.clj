@@ -8,7 +8,7 @@
   "placeholder for a hiccup schema"
   s/Any)
 
-(def Hickory (s/either c/Map [s/Any]))
+(def Html (s/either c/Map [s/Any]))
 
 (defn document
   [& elems]
@@ -49,7 +49,7 @@
 (def strong (element :strong))
 (def b (element :b))
 
-(s/defn as-hickory :- Hickory
+(s/defn from-hiccup :- Html
   [hiccup :- Hiccup]
   (let [convert #(-> (hickory.convert/hiccup-to-hickory %)
                      :content first :content second :content)]

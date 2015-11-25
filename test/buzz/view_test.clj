@@ -4,17 +4,18 @@
             [buzz.tree :as t]
             [buzz.view :as v]
             [clojure.test :refer :all]
+            [net.cgrand.enlive-html :as enlive]
             [schema.core :as s]))
 
 (s/set-fn-validation! true)
 
-(deftest as-hickory-test
+(deftest from-hiccup-test
   (is (= [{:type :element, :attrs {:class "footer"}, :tag :div, :content ["footer"]}]
-         (as-hickory [[:div {:class "footer"} "footer"]]))))
+         (from-hiccup [[:div {:class "footer"} "footer"]]))))
 
-(deftest as-hickory-test-2
+(deftest from-hiccup-test-2
   (is (= {:type :element, :attrs {:class "footer"}, :tag :div, :content ["footer"]}
-         (as-hickory [:div {:class "footer"} "footer"]))))
+         (from-hiccup [:div {:class "footer"} "footer"]))))
 
 (defrecord Header []
   c/View
@@ -35,7 +36,7 @@
   (requires [this cfg req] nil)
   (expands [this data] nil)
   (renders [this model children]
-    (as-hickory
+    (from-hiccup
       [:div {:class "footer"} "footer"])))
 
 (defrecord Page []
@@ -43,13 +44,12 @@
   (requires [this cfg req] nil)
   (expands [this data] nil)
   (renders [this model children]
-    (document
-     (html {}
+    (html {}
       (head {})
       (body {}
         (div {:class "adbanner"})
         (div {:class "page"}
-          (vals children)))))))
+          (vals children))))))
 
 (s/def views :- {s/Keyword c/View?}
   {:header  (->Header)
@@ -64,38 +64,58 @@
         p [:page [h c f]]]
     p))
 
-(def render-tree
-  {:type :document
-   :content
-   [{:tag :html
-     :type :element
-     :attrs {}
-     :content
-     [{:tag :head
-       :type :element
-       :attrs {}
-       :content []}
-      {:tag :body
-       :type :element
-       :attrs {}
-       :content
-       [{:tag :div
-         :type :element
-         :attrs {:class "adbanner"}
-         :content []}
-        {:tag :div
-         :type :element
-         :attrs {:class "page"}
-         :content
-         [{:tag :div, :type :element, :attrs {:class "header"}, :content ["header"]}
-          {:tag :div, :type :element, :attrs {:class "content"}, :content ["content"]}
-          {:tag :div, :type :element, :attrs {:class "footer"}, :content ["footer"]}]}]}]}]})
+(s/def render-tree :- Html
+   {:tag :html
+    :type :element
+    :attrs {}
+    :content
+    [{:tag :head
+      :type :element
+      :attrs {}
+      :content []}
+     {:tag :body
+      :type :element
+      :attrs {}
+      :content
+      [{:tag :div
+        :type :element
+        :attrs {:class "adbanner"}
+        :content []}
+       {:tag :div
+        :type :element
+        :attrs {:class "page"}
+        :content
+        [{:tag :div, :type :element, :attrs {:class "header"}, :content ["header"]}
+         {:tag :div, :type :element, :attrs {:class "content"}, :content ["content"]}
+         {:tag :div, :type :element, :attrs {:class "footer"}, :content ["footer"]}]}]}]})
 
 (deftest pipeline-test
   (is (= render-tree (v/pipeline page views))))
 
-(def render-html
+(s/def render-html :- s/Str
   "<html><head></head><body><div class=\"adbanner\"></div><div class=\"page\"><div class=\"header\">header</div><div class=\"content\">content</div><div class=\"footer\">footer</div></div></body></html>")
+
+(deftest html-test-2
+  (is (= render-html (v/->html {:tag :html,
+ :type :element,
+ :attrs {},
+ :content
+ [{:tag :head, :type :element, :attrs {}, :content []}
+  {:tag :body,
+   :type :element,
+   :attrs {},
+   :content
+   [{:tag :div, :type :element, :attrs {:class "adbanner"}, :content []}
+    {:tag :div,
+     :type :element,
+     :attrs {:class "page"},
+     :content
+     [{:tag :div, :type :element, :attrs {:class "header"}, :content ["header"]}
+      {:tag :div, :type :element, :attrs {:class "content"}, :content ["content"]}
+      {:tag :div,
+       :type :element,
+       :attrs {:class "footer"},
+       :content ["footer"]}]}]}]}))))
 
 (deftest html-test
   (is (= render-html (v/->html (v/pipeline page views)))))

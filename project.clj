@@ -7,6 +7,7 @@
                  [compojure "1.4.0"]
                  [duct "0.4.5"]
                  [duct/hikaricp-component "0.1.0"]
+                 [enlive "1.1.6"]
                  [environ "1.0.1"]
                  [hiccup "1.0.5"]
                  [hickory "0.5.4"]

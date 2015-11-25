@@ -1,6 +1,22 @@
 # buzz
 
-FIXME: description
+Manifesto:
+- Views
+  - must be pure
+  - must be self-contained
+  - any html data format should be supported
+    - hiccup
+    - hickory
+	- enlive
+  - template can be used
+    - moustache
+    - html
+- Layout
+  - the collation of the layout should be done in data and not in a monolithic template
+- Pipeline
+  - during rendering each stage must
+  - inspectable for debugging
+  - optimisable, so that all database queries could be batched
 
 ## Developing
 
