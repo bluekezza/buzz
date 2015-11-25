@@ -117,5 +117,25 @@
        :attrs {:class "footer"},
        :content ["footer"]}]}]}]}))))
 
+(deftest html-test-3
+  (let [html-data [{:type :dtd,
+                    :data
+                    ["html"
+                     "-//W3C//DTD XHTML 1.0 Transitional//EN"
+                     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"]}
+                   {:tag :html,
+                    :attrs {:xml:lang "en", :lang "en"},
+                    :content
+                    ["\n  "
+                     {:tag :head, :attrs nil, :content ["\n  "]}
+                     "\n  "
+                     {:tag :body,
+                      :attrs {:id "home", :class "homehome mol-desktop "},
+                      :content ["\n  "]}
+                     "\n\n"]}]
+        html-str-expected "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n    \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n<html xml:lang=\"en\" lang=\"en\">\n  <head>\n  </head>\n  <body id=\"home\" class=\"homehome mol-desktop \">\n  </body>\n\n</html>"
+        ]
+    (is (= html-str-expected (v/->html html-data)))))
+
 (deftest html-test
   (is (= render-html (v/->html (v/pipeline page views)))))

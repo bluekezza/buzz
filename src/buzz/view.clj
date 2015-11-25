@@ -71,7 +71,9 @@
 
 (s/defn ->html :- s/Str
   [h :- h/Html]
-  (let [content (cond (= (:type h) :document)
+  (let [content (cond (sequential? h)
+                      h
+                      (= (:type h) :document)
                       (:content h)
                       (= (:tag h) :html)
                       [h]
