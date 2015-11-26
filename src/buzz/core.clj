@@ -27,3 +27,12 @@
   "a placeholder for fetching queries"
   [query]
   nil)
+
+(defn str'
+  "a faster str implementation using a mutable string builder"
+  [& seq-of-strings]
+  (loop [buffer (StringBuilder.)
+         args seq-of-strings]
+    (if-not (seq args)
+      (str buffer)
+      (recur (.append buffer (first args)) (rest args)))))

@@ -69,7 +69,7 @@
         root (first page-tree)]
     (get-in view-plans [root :html])))
 
-(s/defn ->html :- s/Str
+(s/defn html-as-str :- s/Str
   [h :- h/Html]
   (let [content (cond (sequential? h)
                       h
@@ -78,4 +78,4 @@
                       (= (:tag h) :html)
                       [h]
                       :else (throw (ExceptionInfo. "cannot serialize" h)))]
-    (reduce str (enlive/emit* content))))
+    (apply c/str' (enlive/emit* content))))

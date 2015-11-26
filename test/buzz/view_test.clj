@@ -92,30 +92,31 @@
 (deftest pipeline-test
   (is (= render-tree (v/pipeline page views))))
 
-(s/def render-html :- s/Str
+(s/def render-html-str :- s/Str
   "<html><head></head><body><div class=\"adbanner\"></div><div class=\"page\"><div class=\"header\">header</div><div class=\"content\">content</div><div class=\"footer\">footer</div></div></body></html>")
 
 (deftest html-test-2
-  (is (= render-html (v/->html {:tag :html,
- :type :element,
- :attrs {},
- :content
- [{:tag :head, :type :element, :attrs {}, :content []}
-  {:tag :body,
-   :type :element,
-   :attrs {},
-   :content
-   [{:tag :div, :type :element, :attrs {:class "adbanner"}, :content []}
-    {:tag :div,
-     :type :element,
-     :attrs {:class "page"},
-     :content
-     [{:tag :div, :type :element, :attrs {:class "header"}, :content ["header"]}
-      {:tag :div, :type :element, :attrs {:class "content"}, :content ["content"]}
-      {:tag :div,
-       :type :element,
-       :attrs {:class "footer"},
-       :content ["footer"]}]}]}]}))))
+  (is (= render-html-str
+         (v/html-as-str {:tag :html,
+                         :type :element,
+                         :attrs {},
+                         :content
+                         [{:tag :head, :type :element, :attrs {}, :content []}
+                          {:tag :body,
+                           :type :element,
+                           :attrs {},
+                           :content
+                           [{:tag :div, :type :element, :attrs {:class "adbanner"}, :content []}
+                            {:tag :div,
+                             :type :element,
+                             :attrs {:class "page"},
+                             :content
+                             [{:tag :div, :type :element, :attrs {:class "header"}, :content ["header"]}
+                              {:tag :div, :type :element, :attrs {:class "content"}, :content ["content"]}
+                              {:tag :div,
+                               :type :element,
+                               :attrs {:class "footer"},
+                               :content ["footer"]}]}]}]}))))
 
 (deftest html-test-3
   (let [html-data [{:type :dtd,
@@ -135,7 +136,8 @@
                      "\n\n"]}]
         html-str-expected "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n    \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n<html xml:lang=\"en\" lang=\"en\">\n  <head>\n  </head>\n  <body id=\"home\" class=\"homehome mol-desktop \">\n  </body>\n\n</html>"
         ]
-    (is (= html-str-expected (v/->html html-data)))))
+    (is (= html-str-expected (v/html-as-str html-data)))))
 
 (deftest html-test
-  (is (= render-html (v/->html (v/pipeline page views)))))
+  (is (= render-html-str
+         (v/html-as-str (v/pipeline page views)))))
