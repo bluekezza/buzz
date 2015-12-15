@@ -10,10 +10,20 @@
 (def PosInt (s/both s/Int (s/pred #(> % 0))))
 (def Str (s/both s/Str (s/pred #(not (clojure.string/blank? %)))))
 (def Map (s/either clojure.lang.PersistentHashMap clojure.lang.PersistentArrayMap))
+(def PropertyPath [(s/either s/Keyword s/Int)])
 
 (defn schema-for-protocol
   [type]
   (s/pred #(and (not (nil? %)) (satisfies? type %))))
+
+(defprotocol Query
+  (fetch [self] "fetches the data"))
+
+(defrecord ElasticSearchQuery [index query fields sort from size]
+  Query
+  (fetch [self] nil))
+
+(def Configs {s/Keyword PropertyPath})
 
 (defprotocol View
   "a self-contained view"
@@ -21,7 +31,15 @@
   (expands  [self data] "consumes the needed data and expands into its final form")
   (renders  [self model children] "View -> Any -> {s/Keyword Html} -> hiccup"))
 
-(def View? (schema-for-protocol View))
+(def View?
+  (s/both (s/protocol View)
+          {:configs Configs})) ;; the configuration properties required for this View
+
+(defprotocol Page
+  "a page"
+  (routes [self] "routes link to pages"))
+
+(s/defschema Page? (s/protocol Page))
 
 (defn fetch
   "a placeholder for fetching queries"

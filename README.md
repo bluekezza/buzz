@@ -7,16 +7,16 @@ Manifesto:
   - any html data format should be supported
     - hiccup
     - hickory
-	- enlive
+    - enlive
   - template can be used
     - moustache
     - html
 - Layout
   - the collation of the layout should be done in data and not in a monolithic template
 - Pipeline
-  - during rendering each stage must
-  - inspectable for debugging
-  - optimisable, so that all database queries could be batched
+  - during rendering each stage must be
+    - inspectable for debugging
+    - optimizable, e.g all database queries could be batched
 
 ## Developing
 

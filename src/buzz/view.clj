@@ -1,14 +1,17 @@
 (ns buzz.view
-  (:import [clojure.lang ExceptionInfo])
-  (:require [buzz.core :as c]
-            [buzz.html :as h]
-            [buzz.tree :as t]
-            [clojure.algo.generic.functor :refer [fmap]]
-            [hickory.convert]
-            [hickory.render]
-            [net.cgrand.enlive-html :as enlive]
-            [schema.core :as s]
-            [clojure.pprint]))
+  (:import
+   [clojure.lang ExceptionInfo])
+  (:require
+   [buzz.core :as c]
+   [buzz.html :as h]
+   [buzz.http :as http]
+   [buzz.tree :as t]
+   [clojure.algo.generic.functor :refer [fmap]]
+   [clojure.pprint]
+   [hickory.convert]
+   [hickory.render]
+   [net.cgrand.enlive-html :as e]
+   [schema.core :as s]))
 
 (def ViewPlan
   {:name      s/Keyword
@@ -29,8 +32,10 @@
    :extracts])
 
 (s/defn pipeline :- h/Html
-  [page-tree :- t/Tree
-   views     :- {s/Keyword c/View?}]
+  [page-tree  :- t/Tree
+   views      :- {s/Keyword c/View?}
+   app-config :- c/Map
+   request    :- http/Request]
   (let [view-plans (into
                     (array-map)
                     (t/reverse-level-order-walk
@@ -46,8 +51,9 @@
                              :html     nil}]))
                      page-tree))
         view-plans (fmap
-                    (fn [{:keys [view] :as plan}]
-                      (assoc plan :queries (c/requires view nil nil)))
+                    (fn [{{configs :configs :as view} :view :as plan}]
+                      (let [view-config (fmap #(get-in app-config %) configs)]
+                        (assoc plan :queries (c/requires view view-config request))))
                     view-plans)
         view-plans (fmap
                     (fn [{:keys [query] :as plan}]
@@ -78,4 +84,16 @@
                       (= (:tag h) :html)
                       [h]
                       :else (throw (ExceptionInfo. "cannot serialize" h)))]
-    (apply c/str' (enlive/emit* content))))
+    (apply c/str' (e/emit* content))))
+
+(defn transform-by-id
+  [html ;- c/Html
+   m    ;- {s/Keyword c/Html}
+   ]
+  (if-not (seq m)
+    html
+    (reduce (fn [nodes [k v]]
+              (let [selector (keyword (str "#" (name k)))]
+                (e/transform nodes [selector] (fn [& _] v)))) ;;replaces the node
+            html
+            m)))
