@@ -19,11 +19,7 @@
 (defprotocol Query
   (fetch [self] "fetches the data"))
 
-(defrecord ElasticSearchQuery [index query fields sort from size]
-  Query
-  (fetch [self] nil))
-
-(def Configs {s/Keyword PropertyPath})
+(s/defschema Query? (s/protocol Query))
 
 (defprotocol View
   "a self-contained view"
@@ -33,18 +29,15 @@
 
 (def View?
   (s/both (s/protocol View)
-          {:configs Configs})) ;; the configuration properties required for this View
+          {:inputs [PropertyPath]
+           :requires (s/maybe (s/both (s/pred fn?)
+                                      (s/make-fn-schema {s/Keyword Query} [[s/Any]])))}))
 
 (defprotocol Page
   "a page"
   (routes [self] "routes link to pages"))
 
 (s/defschema Page? (s/protocol Page))
-
-(defn fetch
-  "a placeholder for fetching queries"
-  [query]
-  nil)
 
 (defn str'
   "a faster str implementation using a mutable string builder"

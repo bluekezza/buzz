@@ -17,31 +17,43 @@
   (is (= {:type :element, :attrs {:class "footer"}, :tag :div, :content ["footer"]}
          (from-hiccup [:div {:class "footer"} "footer"]))))
 
-(s/defrecord Header [configs :- c/Configs]
+(s/defrecord ^:private Header
+  [inputs requires]
   c/View
-  (requires [this cfg req] nil)
   (expands [this data] nil)
   (renders [this model children]
     (div {:class "header"} "header")))
 
-(s/defrecord Content [configs :- c/Configs]
+(s/defn mkHeader  :- c/View?
+  []
+  (->Header nil nil))
+
+(s/defrecord ^:private Content
+  [inputs requires]
   c/View
-  (requires [this cfg req] nil)
   (expands [this data] nil)
   (renders [this model children]
     (div {:class "content"} "content")))
 
-(s/defrecord Footer [configs :- c/Configs]
+(s/defn mkContent :- c/View?
+  []
+  (->Content nil nil))
+
+(s/defrecord ^:private Footer
+  [inputs requires]
   c/View
-  (requires [this cfg req] nil)
   (expands [this data] nil)
   (renders [this model children]
     (from-hiccup
       [:div {:class "footer"} "footer"])))
 
-(s/defrecord Page [configs :- c/Configs]
+(s/defn mkFooter :- c/View?
+  []
+  (->Footer nil nil))
+
+(s/defrecord ^:private Page
+  [inputs requires]
   c/View
-  (requires [this cfg req] nil)
   (expands [this data] nil)
   (renders [this model children]
     (html {}
@@ -51,11 +63,15 @@
         (div {:class "page"}
           (vals children))))))
 
+(s/defn mkPage :- c/View?
+  []
+  (->Page nil nil))
+
 (s/def views :- {s/Keyword c/View?}
-  {:header  (->Header  {})
-   :content (->Content {})
-   :footer  (->Footer  {})
-   :page    (->Page    {})})
+  {:header  (mkHeader)
+   :content (mkContent)
+   :footer  (mkFooter)
+   :page    (mkPage)})
 
 (s/def page :- t/Tree
   (let [h [:header []]
@@ -150,3 +166,16 @@
   (is (= [{:tag :div, :attrs {:id "child", :class "child-style"}
            :content ["\n  " {:tag :span, :attrs nil, :content ["cheese"]} "\n"]}]
          (v/transform-by-id (parent) {"child" (child)}))))
+
+(defrecord MockQuery [data]
+  c/Query
+  (fetch [self] data))
+
+(deftest query->data-test
+  (let [data-expected [{:dummy :data}]
+        queries {:articles (->MockQuery data-expected)
+                 :foo :bar}
+        data-actual (#'v/query->data queries)]
+    (is (= {:articles data-expected
+            :foo :bar}
+           data-actual))))
