@@ -3,6 +3,7 @@
    [clojure.lang ExceptionInfo])
   (:require
    [buzz.core :as c]
+   [buzz.elastic-search :as es]
    [buzz.html :as h]
    [buzz.http :as http]
    [buzz.tree :as t]
@@ -13,18 +14,23 @@
    [net.cgrand.enlive-html :as e]
    [schema.core :as s]))
 
-(s/defschema ^:private ViewPlan
-  {:name      s/Keyword
+(s/defschema Queries {s/Keyword (s/either c/Query? Object)})
+
+(s/defschema ViewName (-> s/Keyword
+                          (s/named "ViewName")))
+
+(s/defschema ViewPlan
+  {:name      ViewName
    :view      c/View?
    :children [s/Keyword]
-   :queries   (s/maybe {s/Keyword s/Any})
+   :queries   (s/maybe Queries)
    :data      (s/maybe {s/Keyword s/Any})
    :model     (s/maybe s/Any)
    :html      (s/maybe h/Html)})
 
-(s/defschema ^:private ViewPlans
+(s/defschema ViewPlans
   (-> (s/both clojure.lang.PersistentArrayMap
-              {s/Keyword ViewPlan})
+              {ViewName ViewPlan})
       (s/named "ViewPlans")))
 
 (def ^:private steps
@@ -75,7 +81,7 @@
   (fmap
    (fn [query?]
      (if (nil? (s/check c/Query? query?))
-       (c/fetch query?)
+       (es/search query?)
        query?))
    queries))
 
@@ -86,6 +92,54 @@
      (let [data (query->data queries)]
        (assoc plan :data data)))
    view-plans))
+
+(s/defn ^:private keep-queries :- {ViewName {s/Keyword c/Query?}}
+  [name-queries :- {ViewName {s/Keyword (s/either c/Query? Object)}}]
+  (reduce
+   (fn [outer [name queries]]
+     (let [only-queries (reduce
+                         (fn [inner [key value]]
+                           (if (nil? (s/check c/Query? value))
+                             (assoc inner key value)
+                             inner
+                             )
+                           )
+                         (array-map)
+                         queries)]
+       (if (seq only-queries)
+         (assoc outer name only-queries)
+         outer)))
+   (array-map)
+   name-queries))
+
+(s/defn ^:private batch-queries->data :- ViewPlans
+  [vps :- ViewPlans]
+  (def vps'' vps)
+  (let [name-queries (fmap :queries vps)
+        ;; only pass-thru non-empty queries
+        name-queries (into (array-map) (filter (fn [[n qs]] (seq qs)) name-queries))
+        ;; remove static data to leave only queries
+        only-queries (keep-queries name-queries)
+        positions (c/flatten-map only-queries)
+        query-batch (vals positions)
+        data-batch (es/multi-search query-batch)
+        position-paths (keys positions)
+        ;; inject :data between the keys
+        position-paths (map (fn [[a b]] [a :data b]) position-paths)
+        ;; rejoin the paths with the data
+        path-datas (c/zip position-paths data-batch)
+        ;; copy the queries over to the data
+        vps (fmap
+             (fn [vp]
+               (assoc vp :data (:queries vp)))
+             vps)
+        vps' (reduce
+              (fn [acc [path data]]
+                (assoc-in acc path data))
+              vps
+              path-datas)
+        ]
+    vps'))
 
 (s/defn ^:private data->model :- ViewPlan
   [{:keys [view data] :as view-plan} :- ViewPlan]
@@ -122,7 +176,7 @@
         view-plans (page-tree->view-plans page-tree views)
         view-plans (fmap (partial require-queries app-config request) view-plans)
         _ (trigger :queries view-plans)
-        view-plans (queries->data view-plans)
+        view-plans (batch-queries->data view-plans)
         _ (trigger :data view-plans)
         view-plans (fmap data->model view-plans)
         _ (trigger :model view-plans)

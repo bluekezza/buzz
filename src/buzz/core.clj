@@ -17,21 +17,30 @@
   (s/pred #(and (not (nil? %)) (satisfies? type %))))
 
 (defprotocol Query
-  (fetch [self] "fetches the data"))
+  "the protocol for a query"
+  (fetch [self] "fetches the query"))
 
-(s/defschema Query? (s/protocol Query))
+(def Query? (s/protocol Query))
 
 (defprotocol View
   "a self-contained view"
-  (requires [self cfg req] "given the initial seed works out what data it needs")
   (expands  [self data] "consumes the needed data and expands into its final form")
   (renders  [self model children] "View -> Any -> {s/Keyword Html} -> hiccup"))
 
+(defn at-least
+  "validates that at least the keys specified are present"
+  [MapSchema]
+  (s/pred
+    (fn [v]
+      (let [error (s/check MapSchema (select-keys v (keys MapSchema)))]
+        (not (boolean error))))))
+
 (def View?
   (s/both (s/protocol View)
-          {:inputs [PropertyPath]
-           :requires (s/maybe (s/both (s/pred fn?)
-                                      (s/make-fn-schema {s/Keyword Query} [[s/Any]])))}))
+          (at-least
+           {:inputs [PropertyPath]
+            :requires (s/maybe (s/both (s/pred fn?)
+                                       (s/make-fn-schema {s/Keyword Query} [[s/Any]])))})))
 
 (defprotocol Page
   "a page"
@@ -47,3 +56,34 @@
     (if-not (seq args)
       (str buffer)
       (recur (.append buffer (first args)) (rest args)))))
+
+(defn zip
+  [as bs]
+  (map vector as bs))
+
+(defn nat
+  "natural numbers"
+  []
+  (iterate inc 0))
+
+(s/defn nest-map
+  "nests all the keys of the map under the given name: n"
+  [n :- s/Keyword
+   mp :- Map]
+  (reduce-kv
+   (fn [acc k v]
+     (assoc acc [n k] v)
+     )
+   {}
+   mp))
+
+(defn flatten-map
+  [map']
+  (->> (reduce
+       (fn [acc [k m]]
+         (let [m' (nest-map k m)]
+           (conj acc m')))
+       []
+       map')
+       (apply concat)
+       (into (array-map))))

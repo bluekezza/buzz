@@ -1,5 +1,7 @@
 (ns buzz.view-test
   (:require [buzz.core :as c]
+            [buzz.core-test :as ct]
+            [buzz.elastic-search :as es]
             [buzz.html :refer :all]
             [buzz.tree :as t]
             [buzz.view :as v]
@@ -167,15 +169,70 @@
            :content ["\n  " {:tag :span, :attrs nil, :content ["cheese"]} "\n"]}]
          (v/transform-by-id (parent) {"child" (child)}))))
 
-(defrecord MockQuery [data]
-  c/Query
-  (fetch [self] data))
-
 (deftest query->data-test
-  (let [data-expected [{:dummy :data}]
-        queries {:articles (->MockQuery data-expected)
+  (let [data-expected [{:id 1, :type :article}]
+        queries {:articles (es/->SingleQuery "index"
+                                             "type"
+                                             {:match :articles}
+                                             1
+                                             nil)
                  :foo :bar}
-        data-actual (#'v/query->data queries)]
+        data-actual (with-redefs [es/search (fn [query] data-expected)]
+                      (#'v/query->data queries))]
     (is (= {:articles data-expected
             :foo :bar}
            data-actual))))
+
+(defn ->ViewPlan
+  [name view queries]
+  {:name     name
+   :view     view
+   :children []
+   :queries  queries
+   :data     nil
+   :model    nil
+   :html     nil})
+
+(deftest keep-queries-test
+  (let [header-queries {:articles (es/->SingleQuery "buzz" "articles" {:query :articles} 1 nil)
+                        :videos (es/->SingleQuery  "buzz" "videos" {:query :videos} 1 nil)
+                        :foo :bar}
+        footer-queries {:topics (es/->SingleQuery  "buzz" "topics" {:query :topics} 1 nil)
+                        :fuzz :buzz}
+        name-queries {:header header-queries
+                      :footer footer-queries}
+        expected {:header (select-keys header-queries [:articles :videos])
+                  :footer (select-keys footer-queries [:topics])}
+        actual (#'v/keep-queries name-queries)]
+    (is (= expected actual))))
+
+(deftest batch-queries-data-test
+  (let [articles [{:id 1, :type :article} {:id 2, :type :article}]
+        videos [{:id 21 :type :video} {:id 22 :type :video}]
+        topics [{:id 11, :type :topic} {:id 12, :type :topic}]
+        header-queries {:articles (es/->SingleQuery "buzz" "articles" {:query :articles} 1 nil)
+                        :videos (es/->SingleQuery "buzz" "videos" {:query :videos} 1 nil)
+                        :foo :bar}
+        header-data (assoc header-queries :articles articles :videos videos)
+        header-view (ct/mkMockView header-queries)
+        footer-queries {:topics (es/->SingleQuery "buzz" "topics" {:query :topics} 1 nil)
+                        :fuzz :buzz}
+        footer-data (assoc footer-queries :topics topics)
+        footer-view (ct/mkMockView footer-queries)
+        vps {:header (->ViewPlan :header header-view header-queries)
+             :footer (->ViewPlan :footer footer-view footer-queries)}
+        vps-expected (-> vps
+                         (assoc-in [:header :data] header-data)
+                         (assoc-in [:footer :data] footer-data))
+        ;; with only one pass of the batcher
+        vps-actual (with-redefs
+                     [es/multi-search (fn [qs]
+                                        (map
+                                         (fn [q]
+                                           (case (:type q)
+                                             "articles" articles
+                                             "videos"   videos
+                                             "topics"   topics))
+                                         qs))]
+                     (#'v/batch-queries->data vps))]
+    (is (= vps-expected vps-actual))))
