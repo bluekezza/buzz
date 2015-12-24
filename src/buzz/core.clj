@@ -7,25 +7,31 @@
 (defmacro apply-macro [macro args]
   `(apply (functionize ~macro) ~args))
 
-(def PosInt (s/both s/Int (s/pred #(> % 0))))
-(def Str (s/both s/Str (s/pred #(not (clojure.string/blank? %)))))
+(defn a
+  ([Schema]
+   (a Schema ""))
+  ([Schema name]
+   (s/one Schema name)))
+
+(def PosInt (s/both s/Int (s/pred #(>= % 0))))
+(def SPosInt (s/both s/Int (s/pred #(> % 0))))
+
+(s/defschema NonBlankStr
+  (-> s/Str
+      (s/constrained #(not (clojure.string/blank? %)))
+      (s/named "NonBlankStr")))
+
 (def Map (s/either clojure.lang.PersistentHashMap clojure.lang.PersistentArrayMap))
 (def PropertyPath [(s/either s/Keyword s/Int)])
 
-(defn schema-for-protocol
-  [type]
-  (s/pred #(and (not (nil? %)) (satisfies? type %))))
+(def NetworkHost NonBlankStr)
+(def NetworkPort PosInt)
 
-(defprotocol Query
-  "the protocol for a query"
-  (fetch [self] "fetches the query"))
-
-(def Query? (s/protocol Query))
-
-(defprotocol View
-  "a self-contained view"
-  (expands  [self data] "consumes the needed data and expands into its final form")
-  (renders  [self model children] "View -> Any -> {s/Keyword Html} -> hiccup"))
+(defn ArrayMap
+  [Key Value]
+  (-> (s/both clojure.lang.PersistentArrayMap
+              {Key Value})
+      (s/named "ArrayMap")))
 
 (defn at-least
   "validates that at least the keys specified are present"
@@ -34,6 +40,21 @@
     (fn [v]
       (let [error (s/check MapSchema (select-keys v (keys MapSchema)))]
         (not (boolean error))))))
+
+(defn schema-for-protocol
+  [type]
+  (s/pred #(and (not (nil? %)) (satisfies? type %))))
+
+(defprotocol Query
+  "the protocol for a query"
+  (fetch [self conn] "fetches the query"))
+
+(def Query? (s/protocol Query))
+
+(defprotocol View
+  "a self-contained view"
+  (expands  [self data] "consumes the needed data and expands into its final form")
+  (renders  [self model children] "View -> Any -> {s/Keyword Html} -> hiccup"))
 
 (def View?
   (s/both (s/protocol View)

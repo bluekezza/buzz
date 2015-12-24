@@ -18,10 +18,10 @@
  {:protocol (s/enum "http" "https")
   :username s/Str
   :password s/Str
-  :host     c/Str
+  :host     c/NonBlankStr
   :port     s/Int
-  :paths    [c/Str]
-  :query    (s/maybe {c/Str c/Str})
+  :paths    [c/NonBlankStr]
+  :query    (s/maybe {c/NonBlankStr c/NonBlankStr})
   :anchor   s/Str})
 
 (def url-map

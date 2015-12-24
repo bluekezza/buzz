@@ -1,6 +1,7 @@
 (ns buzz.view
   (:import
-   [clojure.lang ExceptionInfo])
+   [clojure.lang ExceptionInfo]
+   [org.elasticsearch.client.transport TransportClient])
   (:require
    [buzz.core :as c]
    [buzz.elastic-search :as es]
@@ -14,7 +15,10 @@
    [net.cgrand.enlive-html :as e]
    [schema.core :as s]))
 
-(s/defschema Queries {s/Keyword (s/either c/Query? Object)})
+
+(s/defschema QueriesAndData {s/Keyword (s/either c/Query? Object)})
+
+(s/defschema Queries {s/Keyword c/Query?})
 
 (s/defschema ViewName (-> s/Keyword
                           (s/named "ViewName")))
@@ -23,8 +27,8 @@
   {:name      ViewName
    :view      c/View?
    :children [s/Keyword]
-   :queries   (s/maybe Queries)
-   :data      (s/maybe {s/Keyword s/Any})
+   :queries   (s/maybe QueriesAndData)
+   :data      (s/maybe {s/Keyword (s/either es/Data Object)})
    :model     (s/maybe s/Any)
    :html      (s/maybe h/Html)})
 
@@ -76,23 +80,6 @@
     (assoc plan :queries (when requires
                            (apply requires view-inputs)))))
 
-(s/defn ^:private ^:IO query->data :- (:data ViewPlan)
-  [queries :- (:queries ViewPlan)]
-  (fmap
-   (fn [query?]
-     (if (nil? (s/check c/Query? query?))
-       (es/search query?)
-       query?))
-   queries))
-
-(s/defn ^:private ^:IO queries->data :- ViewPlans
-  [view-plans :- ViewPlans]
-  (fmap
-   (fn [{:keys [queries] :as plan}]
-     (let [data (query->data queries)]
-       (assoc plan :data data)))
-   view-plans))
-
 (s/defn ^:private keep-queries :- {ViewName {s/Keyword c/Query?}}
   [name-queries :- {ViewName {s/Keyword (s/either c/Query? Object)}}]
   (reduce
@@ -112,32 +99,39 @@
    (array-map)
    name-queries))
 
-(s/defn ^:private batch-queries->data :- ViewPlans
-  [vps :- ViewPlans]
-  (def vps'' vps)
-  (let [name-queries (fmap :queries vps)
-        ;; only pass-thru non-empty queries
-        name-queries (into (array-map) (filter (fn [[n qs]] (seq qs)) name-queries))
-        ;; remove static data to leave only queries
-        only-queries (keep-queries name-queries)
-        positions (c/flatten-map only-queries)
-        query-batch (vals positions)
-        data-batch (es/multi-search query-batch)
-        position-paths (keys positions)
-        ;; inject :data between the keys
-        position-paths (map (fn [[a b]] [a :data b]) position-paths)
-        ;; rejoin the paths with the data
-        path-datas (c/zip position-paths data-batch)
-        ;; copy the queries over to the data
+(s/defn ^:private queries->data :- ViewPlans
+  [search :- (s/make-fn-schema [[es/Data]] [[es/SingleQuery?]])
+   vps :- ViewPlans]
+  (let [;; only pass-thru non-empty queries
+        named-queries-or-data (->> vps                      ;- (c/ArrayMap ViewName ViewPlan)
+                                   (fmap :queries)          ;- (c/ArrayMap ViewName (s/maybe QueriesAndData})
+                                   (filter
+                                    (fn [[n qs]]
+                                      (seq qs)))
+                                   (into (array-map)))      ;- (c/ArrayMap ViewName QueriesAndData)
+        named-queries (keep-queries named-queries-or-data)  ;- (c/ArrayMap ViewName Queries)
+        positions (c/flatten-map named-queries)             ;- (c/ArrayMap Path c/Query?)
+        ;; these positions will track the path the query came from, and will be used to calculate the path to assoc to
+        query-list (vals positions)                         ;- [es/SingleQuery?]
+        data-list (search query-list)                       ;- [[es/Data]]
+        position-paths (->> positions                       ;- (c/ArrayMap Path c/Query?)
+                            keys                            ;- [Path]
+                            (map (fn [[a b]]
+                                   [a :data b])))           ;- [Path]
+        ;; position-paths now refers to the position to assoc-in the data into the ViewPlan
+        paths-and-data (c/zip position-paths data-list)     ;- [[(a Path) (a Data)]]
+        ;; data is now rejoined with their paths
         vps (fmap
              (fn [vp]
                (assoc vp :data (:queries vp)))
              vps)
+        ;; ViewPlans now have their queries copied into their data slots
         vps' (reduce
               (fn [acc [path data]]
                 (assoc-in acc path data))
               vps
-              path-datas)
+              paths-and-data)
+        ;; ViewPlans now have their es/Data assoc'd into the correct positions
         ]
     vps'))
 
@@ -162,7 +156,8 @@
     (m step view-plans)))
 
 (s/defn ^:IO pipeline :- h/Html
-  [page-tree  :- t/Tree
+  [search :- (s/make-fn-schema [[es/Data]] [[es/SingleQuery?]])
+   page-tree  :- t/Tree
    views      :- {s/Keyword c/View?}
    app-config :- AppConfig
    request    :- http/Request]
@@ -176,7 +171,7 @@
         view-plans (page-tree->view-plans page-tree views)
         view-plans (fmap (partial require-queries app-config request) view-plans)
         _ (trigger :queries view-plans)
-        view-plans (batch-queries->data view-plans)
+        view-plans (queries->data search view-plans)
         _ (trigger :data view-plans)
         view-plans (fmap data->model view-plans)
         _ (trigger :model view-plans)

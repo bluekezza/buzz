@@ -35,7 +35,7 @@
 
 (deftest Query-test
   (let [articles [{:id 1, :type :article} {:id 2, :type :article}]
-        query (es/->SingleQuery "index" "type" {:match :article} 1 nil)
+        query (es/->SingleQuery "index" "type" {:match :article} 0 1 nil nil)
         queries {:articles query
                  :foo :bar}
         header-view (mkMockView queries)]

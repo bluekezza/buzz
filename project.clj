@@ -2,7 +2,8 @@
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :min-lein-version "2.0.0"
-  :dependencies [[com.cemerick/url "0.1.1"]
+  :dependencies [[clojurewerkz/elastisch "2.1.0"]
+                 [com.cemerick/url "0.1.1"]
                  [com.stuartsierra/component "0.3.0"]
                  [compojure "1.4.0"]
                  [duct "0.4.5"]
@@ -21,7 +22,11 @@
                  [ring "1.4.0"]
                  [ring-jetty-component "0.3.0"]
                  [ring-webjars "0.1.1"]
-                 [ring/ring-defaults "0.1.5"]]
+                 [ring/ring-defaults "0.1.5"]
+                 [co.paralleluniverse/quasar-core "0.7.3"]
+                 [co.paralleluniverse/pulsar "0.7.3"]
+                 ]
+  :java-agents [[co.paralleluniverse/quasar-core "0.7.3"]]
   :plugins [[lein-environ "1.0.1"]
             [lein-gen "0.2.2"]]
   :generators [[duct/generators "0.4.5"]]

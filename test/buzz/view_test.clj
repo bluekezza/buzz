@@ -108,7 +108,8 @@
          {:tag :div, :type :element, :attrs {:class "footer"}, :content ["footer"]}]}]}]})
 
 (deftest pipeline-test
-  (is (= render-tree (v/pipeline page views {} {}))))
+  (let [search (fn [queries] (map (fn [_] nil) queries))]
+    (is (= render-tree (v/pipeline search page views {} {})))))
 
 (s/def render-html-str :- s/Str
   "<html><head></head><body><div class=\"adbanner\"></div><div class=\"page\"><div class=\"header\">header</div><div class=\"content\">content</div><div class=\"footer\">footer</div></div></body></html>")
@@ -157,8 +158,9 @@
     (is (= html-str-expected (v/html-as-str html-data)))))
 
 (deftest html-test
-  (is (= render-html-str
-         (v/html-as-str (v/pipeline page views {} {})))))
+  (let [search (fn [queries] (map (fn [_] nil) queries))]
+    (is (= render-html-str
+           (v/html-as-str (v/pipeline :sequential page views {} {}))))))
 
 (e/defsnippet child "buzz/child.html" [:div] [])
 
@@ -168,20 +170,6 @@
   (is (= [{:tag :div, :attrs {:id "child", :class "child-style"}
            :content ["\n  " {:tag :span, :attrs nil, :content ["cheese"]} "\n"]}]
          (v/transform-by-id (parent) {"child" (child)}))))
-
-(deftest query->data-test
-  (let [data-expected [{:id 1, :type :article}]
-        queries {:articles (es/->SingleQuery "index"
-                                             "type"
-                                             {:match :articles}
-                                             1
-                                             nil)
-                 :foo :bar}
-        data-actual (with-redefs [es/search (fn [query] data-expected)]
-                      (#'v/query->data queries))]
-    (is (= {:articles data-expected
-            :foo :bar}
-           data-actual))))
 
 (defn ->ViewPlan
   [name view queries]
@@ -194,10 +182,10 @@
    :html     nil})
 
 (deftest keep-queries-test
-  (let [header-queries {:articles (es/->SingleQuery "buzz" "articles" {:query :articles} 1 nil)
-                        :videos (es/->SingleQuery  "buzz" "videos" {:query :videos} 1 nil)
+  (let [header-queries {:articles (es/->SingleQuery "buzz" "articles" {:query :articles} 0 1 nil nil)
+                        :videos (es/->SingleQuery  "buzz" "videos" {:query :videos} 0 1 nil nil)
                         :foo :bar}
-        footer-queries {:topics (es/->SingleQuery  "buzz" "topics" {:query :topics} 1 nil)
+        footer-queries {:topics (es/->SingleQuery  "buzz" "topics" {:query :topics} 0 1 nil nil)
                         :fuzz :buzz}
         name-queries {:header header-queries
                       :footer footer-queries}
@@ -206,16 +194,16 @@
         actual (#'v/keep-queries name-queries)]
     (is (= expected actual))))
 
-(deftest batch-queries-data-test
+(deftest queries->data-test
   (let [articles [{:id 1, :type :article} {:id 2, :type :article}]
         videos [{:id 21 :type :video} {:id 22 :type :video}]
         topics [{:id 11, :type :topic} {:id 12, :type :topic}]
-        header-queries {:articles (es/->SingleQuery "buzz" "articles" {:query :articles} 1 nil)
-                        :videos (es/->SingleQuery "buzz" "videos" {:query :videos} 1 nil)
+        header-queries {:articles (es/->SingleQuery "buzz" "articles" {:query :articles} 0 1 nil nil)
+                        :videos (es/->SingleQuery "buzz" "videos" {:query :videos} 0 1 nil nil)
                         :foo :bar}
         header-data (assoc header-queries :articles articles :videos videos)
         header-view (ct/mkMockView header-queries)
-        footer-queries {:topics (es/->SingleQuery "buzz" "topics" {:query :topics} 1 nil)
+        footer-queries {:topics (es/->SingleQuery "buzz" "topics" {:query :topics} 0 1 nil nil)
                         :fuzz :buzz}
         footer-data (assoc footer-queries :topics topics)
         footer-view (ct/mkMockView footer-queries)
@@ -225,8 +213,7 @@
                          (assoc-in [:header :data] header-data)
                          (assoc-in [:footer :data] footer-data))
         ;; with only one pass of the batcher
-        vps-actual (with-redefs
-                     [es/multi-search (fn [qs]
+        vps-actual (let [search (fn [qs]
                                         (map
                                          (fn [q]
                                            (case (:type q)
@@ -234,5 +221,5 @@
                                              "videos"   videos
                                              "topics"   topics))
                                          qs))]
-                     (#'v/batch-queries->data vps))]
+                     (#'v/queries->data search vps))]
     (is (= vps-expected vps-actual))))

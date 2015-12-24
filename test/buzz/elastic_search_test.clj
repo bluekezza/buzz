@@ -7,16 +7,15 @@
 ;; https://github.com/clojurewerkz/elastisch/blob/fd6adafd631afbcf0fbd6bc542a15a0510069b13/src/clojurewerkz/elastisch/native/multi.clj
 
 (deftest as-multi-search-test
-  (let [queries [(es/->SingleQuery "articles" "articles" {:match :articles} 1 nil)
-                 (es/->SingleQuery "videos" "videos" {:match :videos} 1 nil)
-                 (es/->SingleQuery "topics" "topics" {:match :topics} 1 nil)]
+  (let [queries [(es/->SingleQuery "articles" "articles" {:match :articles} 0 1 ["articleId"] {"articleId" :asc})
+                 (es/->SingleQuery "videos" "videos" {:match :videos} 0 1 nil nil)
+                 (es/->SingleQuery "topics" "topics" {:match :topics} 0 1 nil nil)]
         input (es/->MultiQuery queries)
         output-expected [{:index "articles" :type "articles"}
-                         {:query {:match :articles} :size 1 :fields nil}
+                         {:query {:match :articles} :from 0 :size 1 :fields ["articleId"] :sort {"articleId" :asc}}
                          {:index "videos" :type "videos"}
-                         {:query {:match :videos} :size 1 :fields nil}
+                         {:query {:match :videos} :from 0 :size 1 :fields nil :sort nil}
                          {:index "topics" :type "topics"}
-                         {:query {:match :topics} :size 1 :fields nil}]
-        output-actual (es/for-multi-search queries)
-        ]
+                         {:query {:match :topics} :from 0 :size 1 :fields nil :sort nil}]
+        output-actual (es/for-multi-search queries)]
     (is (= output-expected output-actual))))
